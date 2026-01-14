@@ -1,57 +1,172 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8">
-  <title>Kutub</title>
+<meta charset="UTF-8">
+<title>Kutub</title>
+
+<style>
+  body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #0f0f0f;
+    color: white;
+  }
+
+  header {
+    padding: 15px;
+    background: #181818;
+    font-size: 22px;
+    font-weight: bold;
+  }
+
+  #status {
+    padding: 10px;
+    font-size: 14px;
+    color: #aaa;
+  }
+
+  #videos {
+    padding: 10px;
+  }
+
+  .video {
+    background: #1f1f1f;
+    border-radius: 8px;
+    padding: 10px;
+    margin-bottom: 10px;
+  }
+
+  .video h3 {
+    margin: 0 0 5px 0;
+  }
+
+  .like-btn {
+    background: #ff0033;
+    border: none;
+    color: white;
+    padding: 5px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+
+  /* Загрузка */
+  #loader {
+    display: flex;
+    justify-content: center;
+    margin-top: 40px;
+  }
+
+  .spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid #333;
+    border-top: 4px solid #ff0033;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    0% { transform: rotate(0); }
+    100% { transform: rotate(360deg); }
+  }
+
+  /* Плашка снизу */
+  #toast {
+    position: fixed;
+    bottom: 15px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #222;
+    padding: 10px 20px;
+    border-radius: 6px;
+    display: none;
+  }
+</style>
 </head>
+
 <body>
 
-<h1>Kutub</h1>
-<p id="status">Проверка сервера...</p>
+<header>🎬 Kutub</header>
+<div id="status">Загрузка...</div>
 
-<h2>Видео</h2>
+<div id="loader"><div class="spinner"></div></div>
 <div id="videos"></div>
 
+<div id="toast"></div>
+
 <script>
-  const API = "https://kutub-server.k90183621.workers.dev";
+const API = "https://kutub-server.k90183621.workers.dev";
+const statusEl = document.getElementById("status");
+const videosEl = document.getElementById("videos");
+const loader = document.getElementById("loader");
 
-  // Проверяем сервер
-  fetch(API + "/")
-    .then(r => r.json())
-    .then(data => {
-      document.getElementById("status").innerText =
-        "Сервер: " + data.status;
+function showToast(text) {
+  const toast = document.getElementById("toast");
+  toast.innerText = text;
+  toast.style.display = "block";
+  setTimeout(() => toast.style.display = "none", 4000);
+}
+
+// Проверка интернета
+if (!navigator.onLine) {
+  statusEl.innerText = "Нет подключения к интернету ❌";
+  showToast("Проверь интернет");
+}
+
+// Загрузка видео
+async function loadVideos() {
+  try {
+    loader.style.display = "flex";
+    videosEl.innerHTML = "";
+
+    const res = await fetch(API + "/videos", { cache: "no-store" });
+    if (!res.ok) throw new Error();
+
+    const data = await res.json();
+    statusEl.innerText = "Сервер онлайн ✅";
+    loader.style.display = "none";
+
+    data.videos.forEach(v => {
+      const div = document.createElement("div");
+      div.className = "video";
+      div.innerHTML = `
+        <h3>${v.title}</h3>
+        <p>❤️ <span id="likes-${v.id}">${v.likes}</span></p>
+        <button class="like-btn" onclick="like(${v.id})">Лайк</button>
+      `;
+      videosEl.appendChild(div);
     });
 
-  // Получаем список видео
-  fetch(API + "/videos")
-    .then(r => r.json())
-    .then(data => {
-      const container = document.getElementById("videos");
-
-      data.videos.forEach(v => {
-        const div = document.createElement("div");
-        div.innerHTML = `
-          <h3>${v.title}</h3>
-          <p>Лайки: <span id="likes-${v.id}">${v.likes}</span></p>
-          <button onclick="like(${v.id})">Лайк</button>
-        `;
-        container.appendChild(div);
-      });
-    });
-
-  // Лайк
-  function like(id) {
-    fetch(API + "/like", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ videoId: id })
-    });
-
-    // пока просто увеличиваем число
-    const el = document.getElementById("likes-" + id);
-    el.innerText = Number(el.innerText) + 1;
+  } catch {
+    statusEl.innerText = "Сервер недоступен ❌";
+    showToast("Что-то пошло не так");
+    setTimeout(loadVideos, 3000); // бесконечная попытка
   }
+}
+
+// Лайк
+function like(id) {
+  fetch(API + "/like", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ videoId: id })
+  });
+
+  const el = document.getElementById("likes-" + id);
+  el.innerText = Number(el.innerText) + 1;
+}
+
+loadVideos();
+
+// Онлайн / оффлайн
+window.addEventListener("offline", () => {
+  showToast("Нет подключения к интернету");
+});
+
+window.addEventListener("online", () => {
+  showToast("Интернет восстановлен");
+  loadVideos();
+});
 </script>
 
 </body>
