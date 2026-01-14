@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Kutub</title>
+</head>
+<body>
+
+<h1>Kutub</h1>
+<p id="status">Проверка сервера...</p>
+
+<h2>Видео</h2>
+<div id="videos"></div>
+
+<script>
+  const API = "https://kutub-server.k90183621.workers.dev";
+
+  // Проверяем сервер
+  fetch(API + "/")
+    .then(r => r.json())
+    .then(data => {
+      document.getElementById("status").innerText =
+        "Сервер: " + data.status;
+    });
+
+  // Получаем список видео
+  fetch(API + "/videos")
+    .then(r => r.json())
+    .then(data => {
+      const container = document.getElementById("videos");
+
+      data.videos.forEach(v => {
+        const div = document.createElement("div");
+        div.innerHTML = `
+          <h3>${v.title}</h3>
+          <p>Лайки: <span id="likes-${v.id}">${v.likes}</span></p>
+          <button onclick="like(${v.id})">Лайк</button>
+        `;
+        container.appendChild(div);
+      });
+    });
+
+  // Лайк
+  function like(id) {
+    fetch(API + "/like", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ videoId: id })
+    });
+
+    // пока просто увеличиваем число
+    const el = document.getElementById("likes-" + id);
+    el.innerText = Number(el.innerText) + 1;
+  }
+</script>
+
+</body>
+</html>
